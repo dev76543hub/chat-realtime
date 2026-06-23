@@ -29,6 +29,7 @@ const wss = new WebSocket.Server({ server });
 // ===================== STATE =====================
 const clients = new Map();      // ws -> chatId
 const chatRooms = new Map();    // chatId -> Set(ws)
+const userSockets = new Map(); // userId -> Set(ws)
 
 // ===================== WS HEARTBEAT =====================
 function heartbeat() {
@@ -55,6 +56,17 @@ wss.on("connection", (ws) => {
             // ================= AUTH =================
             if (data.type === "auth") {
                 const chatId = Number(data.chat_id);
+if (!chatId) {
+    ws.close(1008, "NO_CHAT_ID");
+    return;
+}
+
+              
+
+              if (!userSockets.has(ws.userId)) {
+    userSockets.set(ws.userId, new Set());
+}
+userSockets.get(ws.userId).add(ws);
 
                 const expected = crypto
                     .createHmac("sha256", process.env.WS_SECRET)
@@ -67,6 +79,13 @@ wss.on("connection", (ws) => {
     ws.close(1008, "AUTH_FAILED");
     return;
 }
+
+
+// SOLO AQUÍ
+ws.userId = Number(data.user_id);
+ws.authed = true;
+ws.chatId = chatId;
+
 
                 // cerrar otros sockets del mismo chat
                 for (const [client, room] of clients) {
@@ -92,8 +111,10 @@ wss.on("connection", (ws) => {
 
             // ================= SYNC =================
             if (data.type === "sync") {
-                const chatId = ws.chatId;
-                if (!chatId) return;
+
+              if (!ws.authed || !ws.chatId) return;
+
+const chatId = ws.chatId;
                 const lastId = Number(data.last_message_id || 0);
 
                 const rows = await awaitFakeQuery(`
@@ -119,6 +140,17 @@ wss.on("connection", (ws) => {
     });
 
     ws.on("close", () => {
+
+
+if (ws.userId && userSockets.has(ws.userId)) {
+    userSockets.get(ws.userId).delete(ws);
+
+    if (userSockets.get(ws.userId).size === 0) {
+        userSockets.delete(ws.userId);
+    }
+}
+
+
         const chatId = clients.get(ws);
 
         clients.delete(ws);
@@ -153,18 +185,16 @@ app.post("/push", (req, res) => {
         return res.status(403).json({ error: "forbidden" });
     }
 
-    const {
-        chat_id,
-        id,
-        message,
-        sender,
-        type,
-        user_id,
-        hearts_added,
-        hearts_total
-    } = req.body;
 
-    const chatId = parseInt(chat_id, 10);
+const { chat_id, id, message, sender, type, user_id, hearts_added, hearts_total } = req.body;
+
+const chatId = parseInt(chat_id, 10);
+
+if (!Number.isFinite(chatId)) {
+    return res.status(400).json({ error: "invalid chat" });
+}
+
+
 
     // payment update broadcast global
     if (type === "payment_update") {
