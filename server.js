@@ -38,6 +38,8 @@ function heartbeat() {
 // ===================== WEBSOCKET =====================
 wss.on("connection", (ws) => {
     ws.isAlive = true;
+    ws.authed = false;
+    ws.chatId = null;
     ws.on("pong", heartbeat);
 
     ws.on("message", async (msg) => {
@@ -59,15 +61,12 @@ wss.on("connection", (ws) => {
                     .update(String(chatId))
                     .digest("hex");
 
-                if (expected !== data.token) {
-                    console.log("AUTH FAIL", {
-                        chat_id: data.chat_id,
-                        received: data.token,
-                        expected
-                    });
-                    ws.close();
-                    return;
-                }
+             if (expected !== data.token) {
+    console.log("AUTH FAIL", data.chat_id);
+
+    ws.close(1008, "AUTH_FAILED");
+    return;
+}
 
                 // cerrar otros sockets del mismo chat
                 for (const [client, room] of clients) {
@@ -78,6 +77,9 @@ wss.on("connection", (ws) => {
                 }
 
                 clients.set(ws, chatId);
+
+                ws.authed = true;
+                ws.chatId = chatId;
 
                 if (!chatRooms.has(chatId)) {
                     chatRooms.set(chatId, new Set());
@@ -90,7 +92,8 @@ wss.on("connection", (ws) => {
 
             // ================= SYNC =================
             if (data.type === "sync") {
-                const chatId = Number(data.chat_id);
+                const chatId = ws.chatId;
+                if (!chatId) return;
                 const lastId = Number(data.last_message_id || 0);
 
                 const rows = await awaitFakeQuery(`
@@ -188,6 +191,7 @@ app.post("/push", (req, res) => {
     }
 
     const sockets = chatRooms.get(chatId);
+    if (!sockets) return res.json({ ok: true });
 
     if (!sockets || sockets.size === 0) {
         return res.json({ ok: true });
@@ -196,9 +200,19 @@ app.post("/push", (req, res) => {
     let delivered = 0;
 
     for (const ws of sockets) {
+
+        if (ws.chatId !== chatId) continue;
         if (!ws || ws.readyState !== WebSocket.OPEN) continue;
 
         try {
+
+
+if (ws.bufferedAmount > 1e6) {
+    console.warn("WS slow client skipped");
+    continue;
+}
+
+
             ws.send(JSON.stringify({
                 type: "new_message",
                 chat_id: chatId,
@@ -227,15 +241,17 @@ app.use((err, req, res, next) => {
 // ===================== HEARTBEAT (GLOBAL) =====================
 setInterval(() => {
     wss.clients.forEach((ws) => {
+        if (ws.readyState !== WebSocket.OPEN) return;
+
         if (ws.isAlive === false) {
-            ws.terminate();
-            return;
+            console.log("WS killed (no heartbeat)");
+            return ws.terminate();
         }
 
         ws.isAlive = false;
         ws.ping();
     });
-}, 30000);
+}, 25000);
 
 // ===================== START =====================
 const PORT = process.env.PORT || 10000;
