@@ -14,9 +14,37 @@ const db = mysql.createPool({
     connectionLimit: 10
 });
 
+
+// 🔥 AUDITORÍA DE CONEXIÓN (AGREGAR AQUÍ)
+db.getConnection()
+  .then(conn => {
+    console.log("✅ DB CONNECTED");
+    conn.release();
+  })
+  .catch(err => {
+    console.error("❌ DB FAILED:", err.code || err.message);
+  });
+
+
+
 async function awaitFakeQuery(sql, params) {
-    const [rows] = await db.execute(sql, params);
-    return rows;
+    try {
+        if (!process.env.DB_HOST) {
+            throw new Error("DB not configured");
+        }
+
+        const [rows] = await db.execute(sql, params);
+        return rows;
+    } catch (err) {
+        console.error("DB ERROR:", err.code || err.message);
+
+        // evita crash de WS
+        return [];
+    }
+}
+
+if (!process.env.DB_HOST || !process.env.DB_USER || !process.env.DB_NAME) {
+    console.error("❌ Missing DB env vars");
 }
 
 // ===================== APP =====================
