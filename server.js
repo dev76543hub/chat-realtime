@@ -7,22 +7,31 @@ const mysql = require("mysql2/promise");
 // ===================== DB =====================
 const db = mysql.createPool({
     host: process.env.DB_HOST,
+    port: Number(process.env.DB_PORT || 4000),
     user: process.env.DB_USER,
     password: process.env.DB_PASS,
     database: process.env.DB_NAME,
+
     waitForConnections: true,
-    connectionLimit: 10
+    connectionLimit: 10,
+    queueLimit: 0,
+
+    ssl: process.env.DB_SSL === "true"
+        ? {
+            minVersion: "TLSv1.2",
+            rejectUnauthorized: false
+        }
+        : null
 });
 
 
-// 🔥 AUDITORÍA DE CONEXIÓN (AGREGAR AQUÍ)
 db.getConnection()
   .then(conn => {
-    console.log("✅ DB CONNECTED");
+    console.log("✅ TIDB CONNECTED OK");
     conn.release();
   })
   .catch(err => {
-    console.error("❌ DB FAILED:", err.code || err.message);
+    console.error("❌ DB ERROR:", err.code || err.message);
   });
 
 
