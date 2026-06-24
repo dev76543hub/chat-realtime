@@ -100,10 +100,7 @@ if (!chatId) {
 
               
 
-              if (!userSockets.has(ws.userId)) {
-    userSockets.set(ws.userId, new Set());
-}
-userSockets.get(ws.userId).add(ws);
+            
 
                 const expected = crypto
                     .createHmac("sha256", process.env.WS_SECRET)
@@ -120,17 +117,28 @@ userSockets.get(ws.userId).add(ws);
 
 // SOLO AQUÍ
 ws.userId = Number(data.user_id);
+
+
+  if (!userSockets.has(ws.userId)) {
+    userSockets.set(ws.userId, new Set());
+}
+userSockets.get(ws.userId).add(ws);
+
+}
+
 ws.authed = true;
 ws.chatId = chatId;
 
 
                 // cerrar otros sockets del mismo chat
-                for (const [client, room] of clients) {
-                    if (room === chatId && client !== ws) {
-                        client.close();
-                        clients.delete(client);
-                    }
-                }
+              for (const [client, room] of clients) {
+
+    if (room === chatId && client !== ws) {
+
+        client.close(1000, "REPLACED");
+
+    }
+}
 
                 clients.set(ws, chatId);
 
