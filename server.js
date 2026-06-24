@@ -99,9 +99,6 @@ if (!chatId) {
 }
 
               
-
-            
-
                 const expected = crypto
                     .createHmac("sha256", process.env.WS_SECRET)
                     .update(String(chatId))
@@ -124,7 +121,6 @@ ws.userId = Number(data.user_id);
 }
 userSockets.get(ws.userId).add(ws);
 
-}
 
 ws.authed = true;
 ws.chatId = chatId;
