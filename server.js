@@ -116,6 +116,29 @@ if (!chatId) {
 ws.userId = Number(data.user_id);
 
 
+
+const existingSockets =
+    userSockets.get(ws.userId);
+
+if (existingSockets) {
+
+    for (const oldWs of existingSockets) {
+
+        if (
+            oldWs !== ws &&
+            oldWs.readyState === WebSocket.OPEN
+        ) {
+            oldWs.close(
+                1000,
+                "USER_RECONNECTED"
+            );
+        }
+    }
+}
+
+
+
+
   if (!userSockets.has(ws.userId)) {
     userSockets.set(ws.userId, new Set());
 }
@@ -270,12 +293,21 @@ if (!Number.isFinite(chatId)) {
 
     let delivered = 0;
 
-    for (const ws of sockets) {
+  for (const ws of sockets) {
 
-        if (ws.chatId !== chatId) continue;
-        if (!ws || ws.readyState !== WebSocket.OPEN) continue;
+    if (
+        !ws ||
+        ws.readyState !== WebSocket.OPEN
+    ) {
 
-        try {
+        sockets.delete(ws);
+        continue;
+    }
+
+    if (ws.chatId !== chatId)
+        continue;
+
+    try {
 
 
 if (ws.bufferedAmount > 1e6) {
@@ -322,7 +354,7 @@ setInterval(() => {
         ws.isAlive = false;
         ws.ping();
     });
-}, 25000);
+}, 15000);
 
 // ===================== START =====================
 const PORT = process.env.PORT || 10000;
