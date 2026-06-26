@@ -163,18 +163,23 @@ ws.chatId = chatId;
     }
 }
 
-                clients.set(ws, chatId);
+           clients.set(ws, chatId);
 
-                ws.authed = true;
-                ws.chatId = chatId;
+ws.authed = true;
+ws.chatId = chatId;
 
-                if (!chatRooms.has(chatId)) {
-                    chatRooms.set(chatId, new Set());
-                }
+if (!chatRooms.has(chatId)) {
+    chatRooms.set(chatId, new Set());
+}
 
-                chatRooms.get(chatId).add(ws);
+chatRooms.get(chatId).add(ws);
 
-                return;
+// ✅ confirmar autenticación al cliente
+ws.send(JSON.stringify({
+    type: "auth_ok"
+}));
+
+return;
             }
 
             // ================= SYNC =================
