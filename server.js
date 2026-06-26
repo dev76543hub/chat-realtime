@@ -150,11 +150,15 @@ ws.chatId = chatId;
 
 
                 // cerrar otros sockets del mismo chat
-              for (const [client, room] of clients) {
+             for (const [client, room] of clients) {
 
-    if (room === chatId && client !== ws) {
+    if (
+        room === chatId &&
+        client !== ws &&
+        client.userId === ws.userId
+    ) {
 
-        client.close(1000, "REPLACED");
+        client.close(1000,"REPLACED");
 
     }
 }
@@ -316,13 +320,13 @@ if (ws.bufferedAmount > 1e6) {
 }
 
 
-            ws.send(JSON.stringify({
-                type: "new_message",
-                chat_id: chatId,
-                id: Number(id),
-                message: String(message || ""),
-                sender: sender === "ia" ? "ia" : "usuario"
-            }));
+         ws.send(JSON.stringify({
+    type: "new_message",
+    chat_id: chatId,
+    id: Number(id),
+    message: String(message ?? ""),
+    sender: sender === "ia" ? "ia" : "usuario"
+}));
 
             delivered++;
         } catch (e) {
