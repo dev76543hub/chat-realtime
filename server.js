@@ -330,9 +330,12 @@ if (ws.bufferedAmount > 1e6) {
         }
     }
 
-    console.log("WS delivered:", delivered);
+ console.log("WS delivered:", delivered);
 
-    return res.json({ ok: true });
+return res.json({
+    success: true,
+    clients: delivered
+});
 });
 
 // ===================== ERROR HANDLER =====================
